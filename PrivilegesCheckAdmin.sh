@@ -79,7 +79,7 @@ if [[ $("/usr/sbin/dseditgroup" -o checkmember -m $loggedInUser admin / 2>&1) =~
 #if dseditgroup -o checkmember -m "$LoggedInUser" admin; then
 	echo "$loggedInUser is an admin."
 else
-	echo "$loggedInUser"
+	echo "$loggedInUser is a standard user."
 	exit 0
 fi
 
@@ -89,7 +89,7 @@ echo "Current Unix time: ""$currentEpoch"
 
 # Get user promotion timestamp
 setTimeStamp="$(stat -f%c /usr/local/tatime)"
-echo "Unix time when admin was given: ""setTimeStamp"
+echo "Unix time when admin was given: ""$setTimeStamp"
 
 # Seconds since user was promoted
 timeSinceAdmin="$((currentEpoch - setTimeStamp))"
@@ -98,15 +98,16 @@ echo "Seconds since admin was given: ""$timeSinceAdmin"
 # If timestamp exists and the specified time has passed, remove admin
 if [[ -e /usr/local/tatime ]] && [[ (( timeSinceAdmin -gt privilegeSeconds )) ]]; then
 
-    echo ""$privilegesMinutes" have passed, removing admin"
-	echo "Removing $loggedInUser's admin privileges"
-	/usr/local/bin/jamf displayMessage -message "Admin rights have been revoked."
+    echo ""$privilegesMinutes" minutes have passed, removing admin privileges for $loggedInUser"
+    # Give the user a prompt to let them know admin has been removed.
+	/usr/local/bin/jamf displayMessage -message "Time of $privilegesMinutes minutes is expired for Admin privileges. Admin privileges have been revoked."
 	# Demote the user using PrivilegesCLI  
 	sudo -u $loggedInUser /Applications/Privileges.app/Contents/Resources/PrivilegesCLI --remove
-	# Pull logs of what the user did. 
-	log collect --last 30m --output /private/var/privileges/${loggedInUser}_${DATE}/$setTimeStamp.logarchive
+	# Pull logs of what the user did. Change 30m to desired time frame.
+	log collect --last 20m --output /private/var/privileges/${loggedInUser}_${DATE}/$setTimeStamp.logarchive
     # Make sure timestamp file is not present
     mv -vf /usr/local/tatime /usr/local/tatime.old
+    rm $logFile
 
 fi
 

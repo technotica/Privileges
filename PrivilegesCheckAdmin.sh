@@ -20,28 +20,33 @@
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
 
 
-# Indicate how long a user should have admin via Privileges.app, in minutes. Check our plist to see if a value is set.
-
-privilegesMinutes="defaults read /Library/LaunchDaemons/edu.iastate.demote.privileges.plist TimeLimit 2>&1"
-echo "$privilegesMinutes"
-
-# If no current user is logged in, exit quietly
-if [[ -z "$privilegesMinutes" ]]; then
-
-    echo "Admin timeout not specified, using default of 20 minutes"
-    privilegesMinutes=2
-
-fi
-
 # Set date for the logs, this can be modified as dd.mm.yyyy or dd-mm-yyy
 DATE=$(/bin/date +"%d.%m.%Y")
 
-# Grab the logged in user
-loggedInUser=$(/usr/bin/python -c 'from SystemConfiguration import SCDynamicStoreCopyConsoleUser; import sys; username = (SCDynamicStoreCopyConsoleUser(None, None, None) or [None])[0]; username = [username,""][username in [u"loginwindow", None, u""]]; sys.stdout.write(username + "\n");')
+# Determine user allowed to use Privileges from configuration profile.
+loggedInUser=$(python -c "from Foundation import CFPreferencesCopyAppValue; print CFPreferencesCopyAppValue('LimitToUser', 'edu.iastate.demote.privileges')")
 
-#Read the User associated with being allowed to use Privileges.app
-#sudo defaults read "Path to configuration profile that sets LimitToUser"
-#"Set this variable to $AllowedUser"
+# If User is not specified from configuration profile, then remove user immediately
+if [[ -z "$loggedInUser" ]]; then
+    # Otherwise grab the currently logged in user
+	loggedInUser=$(/usr/bin/python -c 'from SystemConfiguration import SCDynamicStoreCopyConsoleUser; import sys; username = (SCDynamicStoreCopyConsoleUser(None, None, None) or [None])[0]; username = [username,""][username in [u"loginwindow", None, u""]]; sys.stdout.write(username + "\n");')
+    echo "Using the currently logged in user $loggedInUser"
+    # Give the user a prompt to let them know admin has been removed.
+	/usr/local/bin/jamf displayMessage -message "You shouldn't have been able to do this. Admin privileges have been revoked."
+    sudo -u $loggedInUser /Applications/Privileges.app/Contents/Resources/PrivilegesCLI --remove
+    exit 0
+fi
+
+# Indicate how long a user should have admin via Privileges.app, in minutes. Time Limit can set set via custom plist used in a configuration profile.
+privilegesMinutes=$(python -c "from Foundation import CFPreferencesCopyAppValue; print CFPreferencesCopyAppValue('TimeLimit', 'edu.iastate.demote.privileges')")
+
+# If time limit isn't set, then use default time of 20 minutes
+if [[ -z "$privilegesMinutes" ]]; then
+
+    echo "Admin timeout not specified, using default of 20 minutes"
+    privilegesMinutes=20
+
+fi
 
 # Set log file location
 logFile="/private/var/privileges/${loggedInUser}_${DATE}/.lastAdminCheck.txt"

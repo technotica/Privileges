@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>LimitToUser</key>
+  	<string>$EXTENSIONATTRIBUTE_67</string>		
+  	<key>RequireAuthentication</key>
+  	<string>true</string>
+  	<key>ReasonRequired</key>
+  	<string>true</string>
+  	<key>ReasonMinLength</key>
+  	<integer>5</integer>			
+</dict>
+</plist>

@@ -20,9 +20,18 @@
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
 
 
-# Indicate how long a user should have admin via Privileges.app, in minutes
-# Make this a plist so it can be selected?
-privilegesMinutes=2
+# Indicate how long a user should have admin via Privileges.app, in minutes. Check our plist to see if a value is set.
+
+privilegesMinutes='defaults read /Library/LaunchDaemons/edu.iastate.demote.privileges.plist TimeLimit'
+echo privilegesMinutes
+
+# If no current user is logged in, exit quietly
+if [[ -z "$privilegesMinutes" ]]; then
+
+    echo "Admin timeout not specified, using default of 20 minutes"
+    privilegesMinutes=2
+
+fi
 
 # Set date for the logs, this can be modified as dd.mm.yyyy or dd-mm-yyy
 DATE=$(/bin/date +"%d.%m.%Y")
@@ -96,14 +105,13 @@ echo "Seconds since admin was given: ""$timeSinceAdmin"
 
 # Privileges timeout in seconds
 privilegesSeconds="$((privilegesMinutes * 60))"
-echo "$privilegesSeconds"
 
 # If timestamp exists and the specified time has passed, remove admin
 if [[ -e /usr/local/tatime ]] && [[ (( timeSinceAdmin -gt privilegesSeconds )) ]]; then
 
     echo ""$privilegesMinutes" minutes have passed, removing admin privileges for $loggedInUser"
     # Give the user a prompt to let them know admin has been removed.
-	/usr/local/bin/jamf displayMessage -message "Time of $privilegesMinutes minutes is expired for Admin privileges. Admin privileges have been revoked."
+	/usr/local/bin/jamf displayMessage -message "Over $privilegesMinutes minutes has passed. Admin privileges have been revoked."
 	# Demote the user using PrivilegesCLI  
 	sudo -u $loggedInUser /Applications/Privileges.app/Contents/Resources/PrivilegesCLI --remove
 	# Pull logs of what the user did. Change 30m to desired time frame.

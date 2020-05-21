@@ -2,13 +2,17 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-<key>Label</key>
-<string>edu.iastate.demote.privileges</string>
-<key>ProgramArguments</key>
-<array>
-	<string>/usr/local/bin/PrivilegesCheckAdmin.sh</string>
-<array>
-<key>StartInterval</key>
-<integer>120</integer>
+	<key>Label</key>
+	<string>edu.iastate.demote.privileges</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/usr/local/bin/PrivilegesCheckAdmin.sh</string>
+	</array>
+	<key>StartInterval</key>
+	<integer>120</integer>
+	<key>LimitToUser</key>
+	<string>$EXTENSIONATTRIBUTE_67</string>	
+	<key>TimeLimit</key>
+	<integer>20</integer>
 </dict>
 </plist>

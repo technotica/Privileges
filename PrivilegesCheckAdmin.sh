@@ -75,9 +75,11 @@ if [[ ! -e /usr/local/tatime ]]; then
 fi
 
 # If user is a standard user, exit quietly
-if dseditgroup -o checkmember -m "$LoggedInUser" admin; then
+if [[ $("/usr/sbin/dseditgroup" -o checkmember -m $loggedInUser admin / 2>&1) =~ "yes" ]]; then
+#if dseditgroup -o checkmember -m "$LoggedInUser" admin; then
 	echo "$loggedInUser is an admin."
 else
+	echo "$loggedInUser"
 	exit 0
 fi
 

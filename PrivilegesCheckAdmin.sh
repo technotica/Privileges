@@ -22,7 +22,7 @@
 
 # Indicate how long a user should have admin via Privileges.app, in minutes. Check our plist to see if a value is set.
 
-privilegesMinutes='defaults read /Library/LaunchDaemons/edu.iastate.demote.privileges.plist TimeLimit'
+privilegesMinutes="defaults read /Library/LaunchDaemons/edu.iastate.demote.privileges.plist TimeLimit 2>&1"
 echo "$privilegesMinutes"
 
 # If no current user is logged in, exit quietly

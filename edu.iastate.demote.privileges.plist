@@ -10,8 +10,8 @@
 	</array>
 	<key>StartInterval</key>
 	<integer>120</integer>
-	<key>LimitToUser</key>
-	<string>$EXTENSIONATTRIBUTE_67</string>	
+	<key>EnableLocalLog</key>
+	<string>False</string>	
 	<key>TimeLimit</key>
 	<integer>20</integer>
 </dict>

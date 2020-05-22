@@ -24,23 +24,15 @@
 DATE=$(/bin/date +"%d.%m.%Y")
 
 # Determine user allowed to use Privileges from configuration profile.
-loggedInUser=$(python -c "from Foundation import CFPreferencesCopyAppValue; print CFPreferencesCopyAppValue('LimitToUser', 'edu.iastate.demote.privileges')")
-
-# If User is not specified from configuration profile, then remove user immediately
-if [[ -z "$loggedInUser" ]]; then
-    # Otherwise grab the currently logged in user
-	loggedInUser=$(/usr/bin/python -c 'from SystemConfiguration import SCDynamicStoreCopyConsoleUser; import sys; username = (SCDynamicStoreCopyConsoleUser(None, None, None) or [None])[0]; username = [username,""][username in [u"loginwindow", None, u""]]; sys.stdout.write(username + "\n");')
-    echo "Using the currently logged in user $loggedInUser"
-    # Give the user a prompt to let them know admin has been removed.
-	/usr/local/bin/jamf displayMessage -message "You shouldn't have been able to do this. Admin privileges have been revoked."
-    sudo -u $loggedInUser /Applications/Privileges.app/Contents/Resources/PrivilegesCLI --remove
-    exit 0
-fi
+loggedInUser=$(python -c "from Foundation import CFPreferencesCopyAppValue; print CFPreferencesCopyAppValue('LimitToUser', 'corp.sap.privileges')")
 
 # Indicate how long a user should have admin via Privileges.app, in minutes. Time Limit can set set via custom plist used in a configuration profile.
 privilegesMinutes=$(python -c "from Foundation import CFPreferencesCopyAppValue; print CFPreferencesCopyAppValue('TimeLimit', 'edu.iastate.demote.privileges')")
 
-# If time limit isn't set, then use default time of 20 minutes
+# Determine if Local logging enabled from configuration profile
+LocalLogging=$(python -c "from Foundation import CFPreferencesCopyAppValue; print CFPreferencesCopyAppValue('EnableLocalLog', 'edu.iastate.demote.privileges')")
+
+# If time limit before admin is promoted isn't set, then use default time of 20 minutes
 if [[ -z "$privilegesMinutes" ]]; then
 
     echo "Admin timeout not specified, using default of 20 minutes"
@@ -79,12 +71,15 @@ if [[ -z "$loggedInUser" ]]; then
 
 fi
 
-# If timestamp file is not present, exit quietly 
-if [[ ! -e /usr/local/tatime ]]; then
-
-    echo "No timestamp, exiting."
-    exit 0
-
+# If User is not specified from configuration profile and is set to blank, exit quietly
+ if [[ -z "$loggedInUser" ]]; then
+#   # Otherwise grab the currently logged in user instead
+	loggedInUser=$(/usr/bin/python -c 'from SystemConfiguration import SCDynamicStoreCopyConsoleUser; import sys; username = (SCDynamicStoreCopyConsoleUser(None, None, None) or [None])[0]; username = [username,""][username in [u"loginwindow", None, u""]]; sys.stdout.write(username + "\n");')
+    echo "User $loggedInUser is logged in."
+#    # User shouldn't be able to promote themselves using Privileges.app.  Something horrible happened.  Give the user a prompt to let them know admin has been removed.
+#	 /usr/local/bin/jamf displayMessage -message "You shouldn't have been able to do this. Admin privileges have been revoked."
+#    sudo -u $loggedInUser /Applications/Privileges.app/Contents/Resources/PrivilegesCLI --remove
+   exit 0
 fi
 
 # If user is a standard user, exit quietly
@@ -94,6 +89,14 @@ if [[ $("/usr/sbin/dseditgroup" -o checkmember -m $loggedInUser admin / 2>&1) =~
 else
 	echo "$loggedInUser is a standard user."
 	exit 0
+fi
+
+# If timestamp file is not present, exit quietly 
+if [[ ! -e /usr/local/tatime ]]; then
+
+    echo "No timestamp, exiting."
+    exit 0
+
 fi
 
 # Get current Unix time
@@ -116,11 +119,17 @@ if [[ -e /usr/local/tatime ]] && [[ (( timeSinceAdmin -gt privilegesSeconds )) ]
 
     echo ""$privilegesMinutes" minutes have passed, removing admin privileges for $loggedInUser"
     # Give the user a prompt to let them know admin has been removed.
-	/usr/local/bin/jamf displayMessage -message "Over $privilegesMinutes minutes has passed. Admin privileges have been revoked."
+	/usr/local/bin/jamf displayMessage -message "Over $privilegesMinutes minutes has passed. Admin privileges have been removed."
 	# Demote the user using PrivilegesCLI  
 	sudo -u $loggedInUser /Applications/Privileges.app/Contents/Resources/PrivilegesCLI --remove
-	# Pull logs of what the user did. Change 30m to desired time frame.
-	log collect --last 20m --output /private/var/privileges/${loggedInUser}_${DATE}/$setTimeStamp.logarchive
+
+	# Pull logs of what the user did. Change 20m (20 minutes) to desired time frame if specified.
+	if [["$LocalLogging"=True]]; then
+
+			log collect --last 20m --output /private/var/privileges/${loggedInUser}_${DATE}/$setTimeStamp.logarchive
+			echo "Log files are collected in /private/var/privileges/${loggedInUser}_${DATE}/"
+	
+	fi
     # Make sure timestamp file is not present
     mv -vf /usr/local/tatime /usr/local/tatime.old
     rm $logFile

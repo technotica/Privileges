@@ -124,9 +124,9 @@ if [[ -e /usr/local/tatime ]] && [[ (( timeSinceAdmin -gt privilegesSeconds )) ]
 	sudo -u $loggedInUser /Applications/Privileges.app/Contents/Resources/PrivilegesCLI --remove
 
 	# Pull logs of what the user did. Change 20m (20 minutes) to desired time frame if specified.
-	if [["$LocalLogging"=True]]; then
+	if [["$LocalLogging"=true]]; then
 
-			log collect --last 20m --output /private/var/privileges/${loggedInUser}_${DATE}/$setTimeStamp.logarchive
+			log collect --last "$privilegesMinutes"m --output /private/var/privileges/${loggedInUser}_${DATE}/$setTimeStamp.logarchive
 			echo "Log files are collected in /private/var/privileges/${loggedInUser}_${DATE}/"
 	
 	fi

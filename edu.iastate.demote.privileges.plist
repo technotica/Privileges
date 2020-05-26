@@ -11,7 +11,7 @@
 	<key>StartInterval</key>
 	<integer>120</integer>
 	<key>EnableLocalLog</key>
-	<string>False</string>	
+	<string>false</string>	
 	<key>TimeLimit</key>
 	<integer>20</integer>
 </dict>

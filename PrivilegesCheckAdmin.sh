@@ -32,6 +32,9 @@ privilegesMinutes=$(python -c "from Foundation import CFPreferencesCopyAppValue;
 # Determine if Local logging enabled from configuration profile
 LocalLogging=$(python -c "from Foundation import CFPreferencesCopyAppValue; print CFPreferencesCopyAppValue('EnableLocalLog', 'edu.iastate.demote.privileges')")
 
+# Set location of script logs for debugging
+DebugLogs="/private/var/logs/privilegesout.log"
+
 # If time limit before admin is promoted isn't set, then use default time of 20 minutes
 if [[ -z "$privilegesMinutes" ]]; then
 
@@ -53,8 +56,8 @@ if [[ $("/usr/sbin/dseditgroup" -o checkmember -m $loggedInUser admin / 2>&1) =~
 #if dseditgroup -o checkmember -m "$LoggedInUser" admin; then
 	echo "$loggedInUser is an admin."
 else
-	# Remove this line eventually
-	echo "$loggedInUser is a standard user."
+	
+	#echo "$loggedInUser is a standard user."
 	exit 0
 fi
 
@@ -74,18 +77,22 @@ logFile="/private/var/privileges/${loggedInUser}_${DATE}/.lastAdminCheck.txt"
 timeStamp=$(date +%s)
 
 # Check if log file exists and set 
-if [ -f $logFile ]; then
- 
-	  echo "File ${logFile} exists."
-		
-else
+#if [ -f $logFile ]; then
+      # Remove this echo
+	  #echo "File ${logFile} exists."
+#		
+#else
 
+# If log file is not present, then create it
+if [[ ! -e "$logFile" ]]; then
+	# Cleanup any old script logs left behind from last run
+	rm $DebugLogs
  	echo "File ${logFile} does NOT exist"
  	# Create a directory to drop collect logs
 	mkdir -p "/private/var/privileges/${loggedInUser}_${DATE}/"
   	touch $logFile
  	echo $timeStamp > $logFile
-  	# Setup an initial time stamp when app launched, will be used to determine how long a user has been promoted to admin
+  	# Setup an initial time stamp when privileges was launched. It will be used to determine how long a user has been promoted to admin.
   	echo "Creating admin timestamp"
   	touch "/usr/local/tatime"
 	chmod 600 "/usr/local/tatime"  
@@ -121,11 +128,17 @@ if [[ -e /usr/local/tatime ]] && [[ (( timeSinceAdmin -gt privilegesSeconds )) ]
     echo ""$privilegesMinutes" minutes have passed, removing admin privileges for $loggedInUser"
     # Give the user a prompt to let them know admin has been removed.
 	/usr/local/bin/jamf displayMessage -message "Over $privilegesMinutes minutes has passed. Admin privileges have been removed."
+	# Use macOS Notification to let user know admin has been removed.  Won't privileges allow this once it is approved?
+	osascript -e 'display notification "Over $privilegesMinutes minutes has passed. Admin privileges have been removed." with title "Privileges"'
 	# Demote the user using PrivilegesCLI  
 	sudo -u $loggedInUser /Applications/Privileges.app/Contents/Resources/PrivilegesCLI --remove
+	# Send a custom Jamf trigger to a policy so we know someone used Privileges successfully
+	/usr/local/jamf/bin/jamf policy -event privileges_ran
 
 	# Pull logs of what the user did. Change 20m (20 minutes) to desired time frame if specified.
-	if [["$LocalLogging"==true]]; then
+	#if [[ -z "$LocalLogging" ]]; then
+	if [["$LocalLogging" == "true"]]; then
+	#if [["$LocalLogging" -eq "1"]]	
 
 			log collect --last "$privilegesMinutes"m --output /private/var/privileges/${loggedInUser}_${DATE}/$setTimeStamp.logarchive
 			echo "Log files are collected in /private/var/privileges/${loggedInUser}_${DATE}/"

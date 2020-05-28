@@ -10,12 +10,12 @@
 # - Removes the User from the admin group via the Privileges CLI
 # #
 # Written by: Jennifer Johnson
-# Original concept drawn from:  TravelingTechGuy (https://github.com/TravellingTechGuy/privileges)
+# Original concept drawn from: TravelingTechGuy (https://github.com/TravellingTechGuy/privileges)
 # and Krypted (https://github.com/jamf/MakeMeAnAdmin) 
 # and soundsnw (https://github.com/soundsnw/mac-sysadmin-resources/tree/master/scripts)
 #
-# Version: 0.1
-# Date: 5/19/20 
+# Version: 0.2
+# Date: 5/28/20 
 #
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
 
@@ -51,25 +51,27 @@ if [[ -z "$loggedInUser" ]]; then
 
 fi
 
-# If user is a standard user, exit quietly
+# If user an admin or standard.  If standard user, exit quietly
 if [[ $("/usr/sbin/dseditgroup" -o checkmember -m $loggedInUser admin / 2>&1) =~ "yes" ]]; then
-#if dseditgroup -o checkmember -m "$LoggedInUser" admin; then
 	echo "$loggedInUser is an admin."
+	userType="Admin"
 else
-	
+	userType="Standard"
 	#echo "$loggedInUser is a standard user."
 	exit 0
 fi
 
 # If user is not specified from configuration profile and is set to blank, exit quietly
  if [[ -z "$loggedInUser" ]]; then
-#   # Otherwise grab the currently logged in user instead
+
+   # Otherwise grab the currently logged in user instead
 	loggedInUser=$(/usr/bin/python -c 'from SystemConfiguration import SCDynamicStoreCopyConsoleUser; import sys; username = (SCDynamicStoreCopyConsoleUser(None, None, None) or [None])[0]; username = [username,""][username in [u"loginwindow", None, u""]]; sys.stdout.write(username + "\n");')
     echo "User $loggedInUser is logged in."
 #    # User shouldn't be able to promote themselves using Privileges.app.  Something horrible happened.  Give the user a prompt to let them know admin has been removed.
 #	 /usr/local/bin/jamf displayMessage -message "You shouldn't have been able to do this. Admin privileges have been revoked."
 #    sudo -u $loggedInUser /Applications/Privileges.app/Contents/Resources/PrivilegesCLI --remove
    exit 0
+
 fi
 
 # Set log file location
@@ -83,8 +85,9 @@ timeStamp=$(date +%s)
 #		
 #else
 
-# If log file is not present, then create it
-if [[ ! -e "$logFile" ]]; then
+# If log file is NOT present and user is promoted to admin, then create a log file and our time stamps for time calculations
+
+if [[ ! -e "$logFile" ]] && [[ $userType = "Admin" ]]; then
 	# Cleanup any old script logs left behind from last run
 	rm $DebugLogs
  	echo "File ${logFile} does NOT exist"
@@ -97,6 +100,20 @@ if [[ ! -e "$logFile" ]]; then
   	touch "/usr/local/tatime"
 	chmod 600 "/usr/local/tatime"  
 
+fi	
+
+# Check if our logfile got created when a user was admin and if the user used Privileges to demote themselves manually, 
+# this clears any of our timestamps and logs for better user experience next time the user launches Privileges.
+
+if [[ -f "$logFile" ]] && [[ $userType = "Standard" ]]; then
+ 
+ 	echo "File ${logFile} does exist"
+	# Make sure timestamp file is not present
+    mv -vf /usr/local/tatime /usr/local/tatime.old
+    rm $logFile
+  	# Cleanup any old script logs left behind from last run
+	#rm $DebugLogs
+    exit 0
 fi	
 
 # If timestamp file is not present, exit quietly 

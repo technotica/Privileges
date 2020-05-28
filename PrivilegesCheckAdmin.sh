@@ -154,7 +154,7 @@ if [[ -e /usr/local/tatime ]] && [[ (( timeSinceAdmin -gt privilegesSeconds )) ]
 
 	# Pull logs of what the user did. Change 20m (20 minutes) to desired time frame if specified.
 	#if [[ -z "$LocalLogging" ]]; then
-	if [["$LocalLogging" == "true"]]; then
+	if [["$LocalLogging" =~ "true"]]; then
 	#if [["$LocalLogging" -eq "1"]]	
 
 			log collect --last "$privilegesMinutes"m --output /private/var/privileges/${loggedInUser}_${DATE}/$setTimeStamp.logarchive

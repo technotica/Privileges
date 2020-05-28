@@ -75,5 +75,6 @@ else
 fi
 
 launchctl load -w /Library/LaunchDaemons/edu.iastate.demote.privileges.plist
+/usr/local/bin/jamf recon
 
 exit $exitCode

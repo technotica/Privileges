@@ -4,14 +4,18 @@
 <dict>
 	<key>Label</key>
 	<string>edu.iastate.demote.privileges</string>
+	<key>StandardOutPath</key>
+	<string>/var/log/privilegesout.log</string>
+	<key>StandardErrorPath</key>
+	<string>/var/log/privilegeserror.log</string>
 	<key>ProgramArguments</key>
 	<array>
 		<string>/usr/local/bin/PrivilegesCheckAdmin.sh</string>
 	</array>
 	<key>StartInterval</key>
-	<integer>120</integer>
+	<integer>60</integer>
 	<key>EnableLocalLog</key>
-	<string>false</string>	
+	<string>true</string>	
 	<key>TimeLimit</key>
 	<integer>20</integer>
 </dict>

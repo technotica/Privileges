@@ -40,6 +40,35 @@ if [[ -z "$privilegesMinutes" ]]; then
 
 fi
 
+# If no current user is logged in, exit quietly
+if [[ -z "$loggedInUser" ]]; then
+
+    echo "No user logged in, exiting"
+    exit 0
+
+fi
+
+# If user is a standard user, exit quietly
+if [[ $("/usr/sbin/dseditgroup" -o checkmember -m $loggedInUser admin / 2>&1) =~ "yes" ]]; then
+#if dseditgroup -o checkmember -m "$LoggedInUser" admin; then
+	echo "$loggedInUser is an admin."
+else
+	# Remove this line eventually
+	echo "$loggedInUser is a standard user."
+	exit 0
+fi
+
+# If user is not specified from configuration profile and is set to blank, exit quietly
+ if [[ -z "$loggedInUser" ]]; then
+#   # Otherwise grab the currently logged in user instead
+	loggedInUser=$(/usr/bin/python -c 'from SystemConfiguration import SCDynamicStoreCopyConsoleUser; import sys; username = (SCDynamicStoreCopyConsoleUser(None, None, None) or [None])[0]; username = [username,""][username in [u"loginwindow", None, u""]]; sys.stdout.write(username + "\n");')
+    echo "User $loggedInUser is logged in."
+#    # User shouldn't be able to promote themselves using Privileges.app.  Something horrible happened.  Give the user a prompt to let them know admin has been removed.
+#	 /usr/local/bin/jamf displayMessage -message "You shouldn't have been able to do this. Admin privileges have been revoked."
+#    sudo -u $loggedInUser /Applications/Privileges.app/Contents/Resources/PrivilegesCLI --remove
+   exit 0
+fi
+
 # Set log file location
 logFile="/private/var/privileges/${loggedInUser}_${DATE}/.lastAdminCheck.txt"
 timeStamp=$(date +%s)
@@ -56,40 +85,12 @@ else
 	mkdir -p "/private/var/privileges/${loggedInUser}_${DATE}/"
   	touch $logFile
  	echo $timeStamp > $logFile
-  	# Setup an intial time stamp when app launched, will be used to determine how long a user has been promoted to admin
+  	# Setup an initial time stamp when app launched, will be used to determine how long a user has been promoted to admin
   	echo "Creating admin timestamp"
   	touch "/usr/local/tatime"
 	chmod 600 "/usr/local/tatime"  
 
 fi	
-
-# If no current user is logged in, exit quietly
-if [[ -z "$loggedInUser" ]]; then
-
-    echo "No user logged in, exiting"
-    exit 0
-
-fi
-
-# If User is not specified from configuration profile and is set to blank, exit quietly
- if [[ -z "$loggedInUser" ]]; then
-#   # Otherwise grab the currently logged in user instead
-	loggedInUser=$(/usr/bin/python -c 'from SystemConfiguration import SCDynamicStoreCopyConsoleUser; import sys; username = (SCDynamicStoreCopyConsoleUser(None, None, None) or [None])[0]; username = [username,""][username in [u"loginwindow", None, u""]]; sys.stdout.write(username + "\n");')
-    echo "User $loggedInUser is logged in."
-#    # User shouldn't be able to promote themselves using Privileges.app.  Something horrible happened.  Give the user a prompt to let them know admin has been removed.
-#	 /usr/local/bin/jamf displayMessage -message "You shouldn't have been able to do this. Admin privileges have been revoked."
-#    sudo -u $loggedInUser /Applications/Privileges.app/Contents/Resources/PrivilegesCLI --remove
-   exit 0
-fi
-
-# If user is a standard user, exit quietly
-if [[ $("/usr/sbin/dseditgroup" -o checkmember -m $loggedInUser admin / 2>&1) =~ "yes" ]]; then
-#if dseditgroup -o checkmember -m "$LoggedInUser" admin; then
-	echo "$loggedInUser is an admin."
-else
-	echo "$loggedInUser is a standard user."
-	exit 0
-fi
 
 # If timestamp file is not present, exit quietly 
 if [[ ! -e /usr/local/tatime ]]; then
@@ -124,7 +125,7 @@ if [[ -e /usr/local/tatime ]] && [[ (( timeSinceAdmin -gt privilegesSeconds )) ]
 	sudo -u $loggedInUser /Applications/Privileges.app/Contents/Resources/PrivilegesCLI --remove
 
 	# Pull logs of what the user did. Change 20m (20 minutes) to desired time frame if specified.
-	if [["$LocalLogging"=true]]; then
+	if [["$LocalLogging"==true]]; then
 
 			log collect --last "$privilegesMinutes"m --output /private/var/privileges/${loggedInUser}_${DATE}/$setTimeStamp.logarchive
 			echo "Log files are collected in /private/var/privileges/${loggedInUser}_${DATE}/"

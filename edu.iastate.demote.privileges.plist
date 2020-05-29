@@ -17,6 +17,8 @@
 	<key>EnableLocalLog</key>
 	<string>true</string>	
 	<key>TimeLimit</key>
-	<integer>20</integer>
+	<integer>2</integer>
+	<key>CustomTrigger<key>
+	<string>privileges_ran</string>
 </dict>
 </plist>

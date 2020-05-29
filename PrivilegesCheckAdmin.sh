@@ -32,8 +32,12 @@ privilegesMinutes=$(python -c "from Foundation import CFPreferencesCopyAppValue;
 # Determine if Local logging enabled from configuration profile
 LocalLogging=$(python -c "from Foundation import CFPreferencesCopyAppValue; print CFPreferencesCopyAppValue('EnableLocalLog', 'edu.iastate.demote.privileges')")
 
+# Determine if Jamf custom trigger is set
+CustomTrigger=$(python -c "from Foundation import CFPreferencesCopyAppValue; print CFPreferencesCopyAppValue('CustomTrigger', 'edu.iastate.demote.privileges')")
+
 # Set location of script logs for debugging
 DebugLogs="/private/var/logs/privilegesout.log"
+
 
 # If time limit before admin is promoted isn't set, then use default time of 20 minutes
 if [[ -z "$privilegesMinutes" ]]; then
@@ -146,19 +150,26 @@ if [[ -e /usr/local/tatime ]] && [[ (( timeSinceAdmin -gt privilegesSeconds )) ]
     # Give the user a prompt to let them know admin has been removed.
 	/usr/local/bin/jamf displayMessage -message "Over $privilegesMinutes minutes has passed. Admin privileges have been removed."
 	# Use macOS Notification to let user know admin has been removed.  Won't privileges allow this once it is approved?
-	osascript -e 'display notification "Over $privilegesMinutes minutes has passed. Admin privileges have been removed." with title "Privileges"'
+	osascript -e 'display notification "Admin privileges have been removed." with title "Privileges"'
+	#/Library/Application\ Support/JAMF/bin/jamfHelper.app/Contents/MacOS/jamfHelper -windowType hud -icon /Applications/Privileges/Resources/AppIcon.icns  -title "Privileges" -heading "My First Jamf Helper Window" -description "This is an
+	#example of my first Jamf Helper Utility Window" -button1 "OK" 
+
 	# Demote the user using PrivilegesCLI  
 	sudo -u $loggedInUser /Applications/Privileges.app/Contents/Resources/PrivilegesCLI --remove
-	# Send a custom Jamf trigger to a policy so we know someone used Privileges successfully
-	/usr/local/jamf/bin/jamf policy -event privileges_ran
+	if [[ ! -e "$CustomTrigger" ]]
+		
+		# Send a custom Jamf trigger to a policy so we know someone used Privileges successfully
+		/usr/local/jamf/bin/jamf policy -event "$CustomTrigger"
+
+	fi
 
 	# Pull logs of what the user did. Change 20m (20 minutes) to desired time frame if specified.
-	#if [[ -z "$LocalLogging" ]]; then
-	if [["$LocalLogging" =~ "true"]]; then
-	#if [["$LocalLogging" -eq "1"]]	
+	if [[ $LocalLogging = "true" ]]; then
 
 			log collect --last "$privilegesMinutes"m --output /private/var/privileges/${loggedInUser}_${DATE}/$setTimeStamp.logarchive
-			echo "Log files are collected in /private/var/privileges/${loggedInUser}_${DATE}/"
+			echo "Log files are collected in /private/var/privileges/"$loggedInUser"_"$DATE""
+			# Give it some time to archive the logs before moving on
+			sleep 30
 	
 	fi
     # Make sure timestamp file is not present

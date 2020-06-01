@@ -18,7 +18,7 @@
 	<string>true</string>	
 	<key>TimeLimit</key>
 	<integer>2</integer>
-	<key>CustomTrigger<key>
+	<key>CustomTrigger</key>
 	<string>privileges_ran</string>
 </dict>
 </plist>

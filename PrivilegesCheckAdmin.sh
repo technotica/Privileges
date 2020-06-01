@@ -14,8 +14,8 @@
 # and Krypted (https://github.com/jamf/MakeMeAnAdmin) 
 # and soundsnw (https://github.com/soundsnw/mac-sysadmin-resources/tree/master/scripts)
 #
-# Version: 0.2
-# Date: 5/28/20 
+# Version: 0.4
+# Date: 6/1/20 
 #
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
 
@@ -26,13 +26,13 @@ DATE=$(/bin/date +"%d.%m.%Y")
 # Determine user allowed to use Privileges from configuration profile.
 loggedInUser=$(python -c "from Foundation import CFPreferencesCopyAppValue; print CFPreferencesCopyAppValue('LimitToUser', 'corp.sap.privileges')")
 
-# Indicate how long a user should have admin via Privileges.app, in minutes. Time Limit can set set via custom plist used in a configuration profile.
+# Determine how long a user should have admin via Privileges.app, in minutes from configuration profile.
 privilegesMinutes=$(python -c "from Foundation import CFPreferencesCopyAppValue; print CFPreferencesCopyAppValue('TimeLimit', 'edu.iastate.demote.privileges')")
 
-# Determine if Local logging enabled from configuration profile
+# Determine if Local logging enabled from configuration profile.
 LocalLogging=$(python -c "from Foundation import CFPreferencesCopyAppValue; print CFPreferencesCopyAppValue('EnableLocalLog', 'edu.iastate.demote.privileges')")
 
-# Determine if Jamf custom trigger is set
+# Determine if Jamf custom trigger is set from configuration profile.
 CustomTrigger=$(python -c "from Foundation import CFPreferencesCopyAppValue; print CFPreferencesCopyAppValue('CustomTrigger', 'edu.iastate.demote.privileges')")
 
 # Set location of script logs for debugging
@@ -57,12 +57,16 @@ fi
 
 # If user an admin or standard.  If standard user, exit quietly
 if [[ $("/usr/sbin/dseditgroup" -o checkmember -m $loggedInUser admin / 2>&1) =~ "yes" ]]; then
+
 	echo "$loggedInUser is an admin."
 	userType="Admin"
+
 else
-	userType="Standard"
+	
 	#echo "$loggedInUser is a standard user."
+	userType="Standard"
 	exit 0
+
 fi
 
 # If user is not specified from configuration profile and is set to blank, exit quietly
@@ -82,18 +86,16 @@ fi
 logFile="/private/var/privileges/${loggedInUser}_${DATE}/.lastAdminCheck.txt"
 timeStamp=$(date +%s)
 
-# Check if log file exists and set 
-#if [ -f $logFile ]; then
-      # Remove this echo
-	  #echo "File ${logFile} exists."
-#		
-#else
-
 # If log file is NOT present and user is promoted to admin, then create a log file and our time stamps for time calculations
-
 if [[ ! -e "$logFile" ]] && [[ $userType = "Admin" ]]; then
-	# Cleanup any old script logs left behind from last run
-	rm $DebugLogs
+	
+	# Cleanup any old script logs left behind from last run, if still there.
+	if  [[ -e "$DebugLogs" ]]; then
+		
+		rm $DebugLogs
+
+	fi
+
  	echo "File ${logFile} does NOT exist"
  	# Create a directory to drop collect logs
 	mkdir -p "/private/var/privileges/${loggedInUser}_${DATE}/"
@@ -106,7 +108,7 @@ if [[ ! -e "$logFile" ]] && [[ $userType = "Admin" ]]; then
 
 fi	
 
-# Check if our logfile got created when a user was admin and if the user used Privileges to demote themselves manually, 
+# Check if our logfile exists (e.g. it got created when a user was admin and if the user used Privileges to demote themselves manually). 
 # this clears any of our timestamps and logs for better user experience next time the user launches Privileges.
 
 if [[ -f "$logFile" ]] && [[ $userType = "Standard" ]]; then
@@ -115,8 +117,6 @@ if [[ -f "$logFile" ]] && [[ $userType = "Standard" ]]; then
 	# Make sure timestamp file is not present
     mv -vf /usr/local/tatime /usr/local/tatime.old
     rm $logFile
-  	# Cleanup any old script logs left behind from last run
-	#rm $DebugLogs
     exit 0
 fi	
 
@@ -147,31 +147,37 @@ privilegesSeconds="$((privilegesMinutes * 60))"
 if [[ -e /usr/local/tatime ]] && [[ (( timeSinceAdmin -gt privilegesSeconds )) ]]; then
 
     echo ""$privilegesMinutes" minutes have passed, removing admin privileges for $loggedInUser"
+
     # Give the user a prompt to let them know admin has been removed.
 	/usr/local/bin/jamf displayMessage -message "Over $privilegesMinutes minutes has passed. Admin privileges have been removed."
-	# Use macOS Notification to let user know admin has been removed.  Won't privileges allow this once it is approved?
-	osascript -e 'display notification "Admin privileges have been removed." with title "Privileges"'
-	#/Library/Application\ Support/JAMF/bin/jamfHelper.app/Contents/MacOS/jamfHelper -windowType hud -icon /Applications/Privileges/Resources/AppIcon.icns  -title "Privileges" -heading "My First Jamf Helper Window" -description "This is an
-	#example of my first Jamf Helper Utility Window" -button1 "OK" 
+
+	# Use macOS Notification to let user know admin has been removed. 
+	# Won't work in macOS 10.14 or higher due to privacy rules.  Would need to allow Terminal full access for this to work.
+	#sudo -u $loggedInUser osascript -e 'display notification "Admin privileges have been removed." with title "Privileges"'
+
+	# Use JamfHelper to let user know admin has been removed via dialog box.
+	/Library/Application\ Support/JAMF/bin/jamfHelper.app/Contents/MacOS/jamfHelper -windowType hud -icon /Applications/Privileges.app/Contents/Resources/AppIcon.icns -title "Privileges" -heading "Administrator Access" -description "Over $privilegesMinutes minutes has passed. Admin privileges have been removed." -button1 "OK" 
 
 	# Demote the user using PrivilegesCLI  
 	sudo -u $loggedInUser /Applications/Privileges.app/Contents/Resources/PrivilegesCLI --remove
-	if [[ ! -e "$CustomTrigger" ]]
-		
-		# Send a custom Jamf trigger to a policy so we know someone used Privileges successfully
-		/usr/local/jamf/bin/jamf policy -event "$CustomTrigger"
 
-	fi
-
-	# Pull logs of what the user did. Change 20m (20 minutes) to desired time frame if specified.
+	# Pull logs of what the user did during the time they were allowed admin rights.
 	if [[ $LocalLogging = "true" ]]; then
 
 			log collect --last "$privilegesMinutes"m --output /private/var/privileges/${loggedInUser}_${DATE}/$setTimeStamp.logarchive
-			echo "Log files are collected in /private/var/privileges/"$loggedInUser"_"$DATE""
+			echo "Log files are collected in /private/var/privileges/"
 			# Give it some time to archive the logs before moving on
 			sleep 30
 	
 	fi
+	
+	# Send a custom Jamf trigger to a policy so we know someone used Privileges successfully, if configured.
+	if [[ ! -e "$CustomTrigger" ]]; then
+		
+		/usr/local/jamf/bin/jamf policy -event "$CustomTrigger"
+
+	fi
+
     # Make sure timestamp file is not present
     mv -vf /usr/local/tatime /usr/local/tatime.old
     rm $logFile

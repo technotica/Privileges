@@ -14,8 +14,8 @@
 # and Krypted (https://github.com/jamf/MakeMeAnAdmin) 
 # and soundsnw (https://github.com/soundsnw/mac-sysadmin-resources/tree/master/scripts)
 #
-# Version: 1.0
-# Date: 6/3/20 
+# Version: 1.1
+# Date: 6/8/20 
 #
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
 
@@ -23,47 +23,53 @@
 # Set date for the logs, this can be modified as dd.mm.yyyy or dd-mm-yyy
 DATE=$(/bin/date +"%d.%m.%Y")
 
-# Determine user allowed to use Privileges from configuration profile.
+# Determine user allowed to use Privileges from configuration profile. IF nothing found, returns "None"
 loggedInUser=$(python -c "from Foundation import CFPreferencesCopyAppValue; print CFPreferencesCopyAppValue('LimitToUser', 'corp.sap.privileges')")
 
-# Determine how long a user should have admin via Privileges.app, in minutes from configuration profile.
+# Determine how long a user should have admin via Privileges.app, in minutes from configuration profile. If nothing found, returns "None"
 privilegesMinutes=$(python -c "from Foundation import CFPreferencesCopyAppValue; print CFPreferencesCopyAppValue('TimeLimit', 'edu.iastate.demote.privileges')")
 
-# Determine if local logging is enabled from configuration profile.
+# Determine if local logging is enabled from configuration profile. If nothing found, returns "None"
 LocalLogging=$(python -c "from Foundation import CFPreferencesCopyAppValue; print CFPreferencesCopyAppValue('EnableLocalLog', 'edu.iastate.demote.privileges')")
 
-# Determine if Jamf custom trigger is set from configuration profile.
+# Determine if Jamf custom trigger is set from configuration profile.  If nothing found, returns "None"
 CustomTrigger=$(python -c "from Foundation import CFPreferencesCopyAppValue; print CFPreferencesCopyAppValue('CustomTrigger', 'edu.iastate.demote.privileges')")
 
 # Set location of script logs for debugging
 DebugLogs="/private/var/logs/privilegesout.log"
 
 
-# If time limit before admin is promoted isn't set, then use default time of 20 minutes
-if [[ -z "$privilegesMinutes" ]]; then
+# If time limit before admin is promoted isn't set, then use default time of 20 minutes.  If this is not set, it will grep as None
+#if [[ -z "$privilegesMinutes" ]]; then
+if [[ $privilegesMinutes = "None" ]]; then
 
-    echo "Admin timeout not specified, using default of 20 minutes"
+    #echo "Admin timeout not specified, using default of 20 minutes"
     privilegesMinutes=20
 
 fi
 
+# If user is not specified in configuration profile (e.g. it is blank), then we don't care what user is logged in. 
+# We don't want to use the currently logged in user, in case it doesn't match what was set in the configuration profile because it may set user account that is admin to a standard account
+
 # If user is not specified from configuration profile (e.g. it is blank) use the logged in user instead.
- if [[ -z "$loggedInUser" ]]; then
+#if [[ -z "$loggedInUser" ]]; then
+if [[ $loggedInUser = "None" ]]; then
 
-   # Otherwise grab the currently logged in user instead
-	loggedInUser=$(/usr/bin/python -c 'from SystemConfiguration import SCDynamicStoreCopyConsoleUser; import sys; username = (SCDynamicStoreCopyConsoleUser(None, None, None) or [None])[0]; username = [username,""][username in [u"loginwindow", None, u""]]; sys.stdout.write(username + "\n");')
-    echo "User not specified from configuration profile. $loggedInUser is logged in."
-    exit 0
-
-    # If no current user is logged in, exit quietly
-	if [[ -z "$loggedInUser" ]]; then
-
-   		echo "No user logged in, exiting"
-   		exit 0
-
-	fi
+#   echo "User not specified from configuration profile. $loggedInUser is logged in."
+	exit 0
 
 fi
+# Otherwise grab the currently logged in user instead
+# loggedInUser=$(/usr/bin/python -c 'from SystemConfiguration import SCDynamicStoreCopyConsoleUser; import sys; username = (SCDynamicStoreCopyConsoleUser(None, None, None) or [None])[0]; username = [username,""][username in [u"loginwindow", None, u""]]; sys.stdout.write(username + "\n");')
+
+
+# If no current user is logged in, exit quietly
+#	if [[ -z "$loggedInUser" ]]; then
+#	echo "No user is logged in."	
+#   exit 0
+#	fi
+
+#fi
 
 # If user an admin or standard.  If standard user, exit quietly
 if [[ $("/usr/sbin/dseditgroup" -o checkmember -m $loggedInUser admin / 2>&1) =~ "yes" ]]; then
@@ -162,8 +168,9 @@ if [[ -e /usr/local/tatime ]] && [[ (( timeSinceAdmin -gt privilegesSeconds )) ]
 	fi
 	
 	# Send a custom Jamf trigger to a policy so we know someone used Privileges successfully, if configured.
-	if [[ ! -e "$CustomTrigger" ]]; then
-		
+	if [[ $CustomTrigger !="None" ]]; then
+	#if [[ ! -e "$CustomTrigger" ]]; then
+
 		/usr/local/jamf/bin/jamf policy -event "$CustomTrigger"
 
 	fi

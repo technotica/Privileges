@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>LimitToUser</key>
-  	<string>$EXTENSIONATTRIBUTE_67</string>		
+  	<string>$EXTENSIONATTRIBUTE_91</string>		
   	<key>RequireAuthentication</key>
   	<string>true</string>
   	<key>ReasonRequired</key>

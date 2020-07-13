@@ -2,20 +2,28 @@
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
 # 
-# This script is designed to be run in conjunction with a Privileges LaunchDaemon to demote 
+# This script is designed to be run in conjunction with a Privileges LaunchDaemon to allow 
 # a specific user from using the Privileges.app to promote themselves
-# - Queries a User attribute set as an extension attribute
-# - Sets a timer (20 minutes)
-# - Logs the actions taken by a user (to be used by future syslog server)
+#
+# - Relies on a configuration profile that uses an extension attribute to LimitToUser
+# - Queries the user allowed from an extension attribute set
+# - Sets a timer (default 20 minutes) to automatically demote a user back to standard
 # - Removes the User from the admin group via the Privileges CLI
+# - Optional: Jamf administrator can change the default time limit
+# - Optional: Logs the actions taken by a user to local folder
+# - Optional: Jamf administrator can use a custom trigger to kick off another policy, potentially for log collection
+# 
 # #
 # Written by: Jennifer Johnson
 # Original concept drawn from: TravelingTechGuy (https://github.com/TravellingTechGuy/privileges)
 # and Krypted (https://github.com/jamf/MakeMeAnAdmin) 
 # and soundsnw (https://github.com/soundsnw/mac-sysadmin-resources/tree/master/scripts)
 #
-# Version: 1.2
-# Date: 6/12/20 
+# Privileges.app was originally developed by SAP - 
+# Privileges.app Project Page:  https://github.com/SAP/macOS-enterprise-privileges
+#
+# Version: 1.3
+# Date: 6/16/20 
 #
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
 
@@ -142,10 +150,10 @@ if [[ -e /usr/local/tatime ]] && [[ (( timeSinceAdmin -gt privilegesSeconds )) ]
 	# Pull logs of what the user did during the time they were allowed admin rights.
 	if [[ $LocalLogging = "true" ]]; then
 
-			log collect --last "$privilegesMinutes"m --output /private/var/privileges/${loggedInUser}_${DATE}/$setTimeStamp.logarchive
-			echo "Log files are collected in /private/var/privileges/"
-			# Give it some time to archive the logs before moving on
-			sleep 30
+		log collect --last "$privilegesMinutes"m --output /private/var/privileges/${loggedInUser}_${DATE}/$setTimeStamp.logarchive
+		echo "Log files are collected in /private/var/privileges/"
+		# Give it some time to archive the logs before moving on
+		sleep 30
 	
 	fi
 	
